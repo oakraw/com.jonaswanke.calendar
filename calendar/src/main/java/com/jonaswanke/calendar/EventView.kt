@@ -11,12 +11,12 @@ import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.style.StyleSpan
 import android.util.AttributeSet
-import android.widget.TextView
 import androidx.annotation.AttrRes
 import androidx.annotation.StyleRes
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.content.withStyledAttributes
+import com.jonaswanke.calendar.utils.px
 import kotlin.properties.Delegates
 
 /**
@@ -28,7 +28,7 @@ class EventView @JvmOverloads constructor(
     @AttrRes defStyleAttr: Int = R.attr.eventViewStyle,
     @StyleRes defStyleRes: Int = R.style.Calendar_EventViewStyle,
     _event: Event? = null
-) : TextView(ContextThemeWrapper(context, defStyleRes), attrs, defStyleAttr) {
+) : androidx.appcompat.widget.AppCompatTextView(ContextThemeWrapper(context, defStyleRes), attrs, defStyleAttr) {
 
     var event by Delegates.observable<Event?>(_event) { _, old, new ->
         if (old == new)
@@ -62,7 +62,7 @@ class EventView @JvmOverloads constructor(
             @SuppressLint("NewApi")
             foreground = getDrawable(0)
         }
-        context.withStyledAttributes(attrs, R.styleable.EventView, defStyleAttr, R.style.Calendar_EventViewStyle) {
+        context.withStyledAttributes(attrs, R.styleable.EventView, defStyleAttr, defStyleRes) {
             backgroundColorDefault = getColor(R.styleable.EventView_backgroundColorDefault, Color.BLUE)
         }
 
@@ -91,5 +91,6 @@ class EventView @JvmOverloads constructor(
                 ?.getDrawable(1) as? GradientDrawable)
                 ?.setColor(event.color ?: backgroundColorDefault)
         background = backgroundDrawable
+        setPadding(16.px, 12.px,16.px,12.px)
     }
 }

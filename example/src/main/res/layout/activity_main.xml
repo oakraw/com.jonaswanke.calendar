@@ -11,100 +11,24 @@
             type="com.jonaswanke.calendar.example.MainActivity" />
     </data>
 
-    <androidx.drawerlayout.widget.DrawerLayout
+    <LinearLayout
         android:id="@+id/drawer_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fitsSystemWindows="true">
+        android:orientation="vertical">
 
-        <LinearLayout
+        <CalendarView
+            android:id="@+id/calendarAndroid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <com.jonaswanke.calendar.CalendarView
+            android:id="@+id/calendar"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            tools:context=".MainActivity">
+            app:hideHeader="true"
+            android:paddingLeft="16dp"
+            app:range="day" />
 
-            <com.google.android.material.appbar.AppBarLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:theme="@style/ThemeOverlay.App.AppBar">
-
-                <androidx.appcompat.widget.Toolbar
-                    android:id="@+id/toolbar"
-                    android:layout_width="match_parent"
-                    android:layout_height="?attr/actionBarSize"
-                    android:background="?attr/colorPrimary"
-                    app:popupTheme="@style/ThemeOverlay.App.Popup" />
-
-            </com.google.android.material.appbar.AppBarLayout>
-
-            <com.jonaswanke.calendar.CalendarView
-                android:id="@+id/calendar"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                app:range="week" />
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="240dp"
-            android:layout_height="match_parent"
-            android:layout_gravity="start"
-            android:background="@android:color/white"
-            android:fitsSystemWindows="true"
-            android:orientation="vertical">
-
-            <TextView
-                style="@style/Widget.App.Config.Header"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/config_range" />
-            <RadioGroup
-                android:layout_width="match_parent"
-                style="@style/Widget.App.RadioGroup"
-                android:layout_height="wrap_content">
-                <RadioButton
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:checked="@{calendar.getRange() == CalendarView.RANGE_DAY}"
-                    android:onClick="@{() -> calendar.setRange(CalendarView.RANGE_DAY)}"
-                    android:text="@string/config_range_day" />
-                <RadioButton
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:checked="@{calendar.getRange() == CalendarView.RANGE_WEEK}"
-                    android:onClick="@{() -> calendar.setRange(CalendarView.RANGE_WEEK)}"
-                    android:text="@string/config_range_week" />
-            </RadioGroup>
-
-            <Space
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@drawable/drawer_info"
-                android:foreground="?android:attr/selectableItemBackground"
-                android:onClick="@{() -> activity.openHomepage()}"
-                android:orientation="vertical"
-                android:padding="16dp"
-                android:theme="@style/ThemeOverlay.AppCompat.Dark">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/drawer_info_creator"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/drawer_info_contact" />
-
-            </LinearLayout>
-
-        </LinearLayout>
-
-    </androidx.drawerlayout.widget.DrawerLayout>
+    </LinearLayout>
 </layout>

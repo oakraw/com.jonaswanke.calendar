@@ -12,8 +12,9 @@ import androidx.core.view.children
 import androidx.core.view.get
 import com.jonaswanke.calendar.RangeView.Companion.showAsAllDay
 import com.jonaswanke.calendar.utils.*
-import kotlinx.coroutines.experimental.android.UI
-import kotlinx.coroutines.experimental.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import java.util.*
 import kotlin.math.max
 import kotlin.properties.Delegates
@@ -128,7 +129,7 @@ class AllDayEventsView @JvmOverloads constructor(
                 { -(eventData[it]?.end ?: Int.MIN_VALUE) }))
         this.events = sortedEvents
 
-        launch(UI) {
+        GlobalScope.launch(Dispatchers.Main) {
             @Suppress("NAME_SHADOWING")
             positionEvents()
 

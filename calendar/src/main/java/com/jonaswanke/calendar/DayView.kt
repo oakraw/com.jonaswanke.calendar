@@ -6,6 +6,7 @@ import android.view.View
 import android.widget.LinearLayout
 import androidx.annotation.AttrRes
 import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
 import com.jonaswanke.calendar.utils.Day
 import com.jonaswanke.calendar.utils.DayRange
 
@@ -60,6 +61,10 @@ class DayView @JvmOverloads constructor(
         addView(scrollView, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
 
         onInitialized()
+    }
+
+    fun hideHeader() {
+        allDayEventsView.isVisible = false
     }
 
 

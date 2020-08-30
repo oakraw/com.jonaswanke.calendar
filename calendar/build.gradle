@@ -4,8 +4,6 @@ apply plugin: 'kotlin-android-extensions'
 
 apply from: rootProject.file('gradle-bintray-push.gradle')
 
-kotlin.experimental.coroutines "enable"
-
 android {
     buildToolsVersion rootProject.buildToolsVersion
     compileSdkVersion rootProject.compileSdkVersion
@@ -33,21 +31,29 @@ android {
         xmlReport true
         lintConfig file("lint.xml")
     }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8.toString()
+    }
 }
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlinVersion"
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:0.22.5"
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:0.22.3"
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.2'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.3.2'
 
     // AndroidX
     // architecture
-    implementation 'androidx.appcompat:appcompat:1.0.0-rc01'
-    implementation 'androidx.core:core-ktx:1.0.0-rc01'
+    implementation 'androidx.appcompat:appcompat:1.2.0'
+    implementation 'androidx.core:core-ktx:1.3.1'
 
     // Testing
     testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'androidx.test:runner:1.1.0-alpha4'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.0-alpha4'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
 }

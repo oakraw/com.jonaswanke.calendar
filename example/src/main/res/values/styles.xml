@@ -26,9 +26,46 @@
         <item name="android:paddingBottom">4dp</item>
     </style>
 
-    <style name="Widget.App.RadioGroup">
-        <item name="android:paddingLeft">8dp</item>
-        <item name="android:paddingRight">8dp</item>
+    <style name="Calendar.CalendarViewStyle">
+        <item name="range">day</item>
+        <item name="hourHeight">60dp</item>
+        <item name="hourHeightMin">40dp</item>
+        <item name="hourHeightMax">100dp</item>
     </style>
 
+    <style name="Calendar.DayEventsViewStyle.ForDay">
+        <item name="dateCurrentBackground">@null</item>
+        <item name="timeCircleRadius">5dp</item>
+        <item name="dividerPadding">16dp</item>
+        <item name="eventSpacing">4dp</item>
+        <item name="eventStackOverlap">400dp</item>
+        <item name="android:paddingRight">16dp</item>
+        <item name="android:paddingLeft">12dp</item>
+    </style>
+
+    <style name="Calendar.EventViewStyle">
+        <item name="android:paddingLeft">4dp</item>
+        <item name="android:minHeight">14dp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">#EA5236</item>
+        <item name="borderWidth">0dp</item>
+        <item name="cornerRadius">8dp</item>
+        <item name="titleDefault">@string/event_title_default</item>
+    </style>
+
+    <style name="Calendar.EventViewStyle.Add">
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">#0063E0</item>
+        <item name="backgroundColorDefault">#F4F4F4</item>
+        <item name="android:text">@string/event_title_add</item>
+    </style>
+
+
+    <style name="Calendar.HoursViewStyle">
+        <item name="hourHeight">32dp</item>
+        <item name="hourHeightMin">24dp</item>
+        <item name="hourHeightMax">100dp</item>
+        <item name="hourSize">12sp</item>
+        <item name="hourColor">#4A4A4A</item>
+    </style>
 </resources>
