@@ -9,6 +9,7 @@ import android.util.SparseArray
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
+import android.widget.CalendarView
 import androidx.annotation.AttrRes
 import androidx.annotation.IntDef
 import androidx.core.content.withStyledAttributes
@@ -18,8 +19,10 @@ import com.jonaswanke.calendar.pager.InfinitePagerAdapter
 import com.jonaswanke.calendar.pager.InfiniteViewPager
 import com.jonaswanke.calendar.utils.*
 import kotlinx.android.synthetic.main.view_calendar.view.*
-import kotlinx.coroutines.experimental.android.UI
-import kotlinx.coroutines.experimental.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import java.util.*
 import kotlin.math.ceil
 import kotlin.properties.Delegates
 
@@ -36,13 +39,12 @@ class CalendarView @JvmOverloads constructor(
         private const val GESTURE_STROKE_LENGTH = 10f
 
         const val RANGE_DAY = 1
-        const val RANGE_3_DAYS = 3
         const val RANGE_WEEK = 7
-        val RANGE_VALUES = intArrayOf(RANGE_DAY, RANGE_3_DAYS, RANGE_WEEK)
+        val RANGE_VALUES = intArrayOf(RANGE_DAY, RANGE_WEEK)
     }
 
     @Retention(AnnotationRetention.SOURCE)
-    @IntDef(RANGE_DAY, RANGE_3_DAYS, RANGE_WEEK)
+    @IntDef(RANGE_DAY, RANGE_WEEK)
     annotation class Range
 
 
@@ -83,7 +85,7 @@ class CalendarView @JvmOverloads constructor(
 
         hours.hourHeight = new
         views[visibleStart]?.hourHeight = new
-        launch(UI) {
+        GlobalScope.launch(Dispatchers.Main) {
             for (view in views.values)
                 if (view.range.start != visibleStart)
                     view.hourHeight = new
@@ -112,6 +114,11 @@ class CalendarView @JvmOverloads constructor(
             week.scrollTo(new)
     }
 
+    var shouldHideHeader = true
+
+    //extension views
+    var androidCalendarView: CalendarView? = null
+
     private val events: MutableMap<Week, List<Event>> = mutableMapOf()
     private val views: MutableMap<Day, RangeView> = mutableMapOf()
     private val scaleDetector: ScaleGestureDetector
@@ -132,12 +139,15 @@ class CalendarView @JvmOverloads constructor(
         }
 
     private var _visibleStart: Day = Day()
+        set(value) {
+            field = value
+            updateExtensions()
+        }
     var visibleStart: Day
         get() = _visibleStart
         set(value) {
             val start = when (range) {
                 RANGE_DAY -> value
-                RANGE_3_DAYS -> TODO()
                 RANGE_WEEK -> value.weekObj.firstDay
                 else -> throw UnsupportedOperationException()
             }
@@ -164,6 +174,7 @@ class CalendarView @JvmOverloads constructor(
             hourHeightMin = getDimension(R.styleable.CalendarView_hourHeightMin, 0f)
             hourHeightMax = getDimension(R.styleable.CalendarView_hourHeightMax, 0f)
             hourHeight = getDimension(R.styleable.CalendarView_hourHeight, 0f)
+            shouldHideHeader = getBoolean(R.styleable.CalendarView_hideHeader, false)
         }
 
         isGestureVisible = false
@@ -182,7 +193,7 @@ class CalendarView @JvmOverloads constructor(
             }
         })
 
-        pagerAdapter = object : InfinitePagerAdapter<Day, RangeView>(visibleStart, 2) {
+        pagerAdapter = object : InfinitePagerAdapter<Day, RangeView>(visibleStart, 1) {
             override fun nextIndicator(current: Day) = current + range
             override fun previousIndicator(current: Day) = current - range
 
@@ -202,11 +213,15 @@ class CalendarView @JvmOverloads constructor(
                 // Generate/reuse view
                 val week = indicator.weekObj
                 val view = when (range) {
-                    RANGE_DAY -> (oldView as? DayView) ?: DayView(context, day = indicator)
-                    RANGE_3_DAYS -> TODO()
+                    RANGE_DAY -> {
+                        val dayView = (oldView as? DayView) ?: DayView(context, day = indicator)
+                        if (shouldHideHeader) dayView.hideHeader()
+                        dayView
+                    }
                     RANGE_WEEK -> (oldView as? WeekView) ?: WeekView(context, week = week)
                     else -> throw UnsupportedOperationException()
                 }
+
 
                 // Configure view
                 view.setListeners(onEventClickListener, onEventLongClickListener, { _ ->
@@ -229,7 +244,7 @@ class CalendarView @JvmOverloads constructor(
                 views[indicator] = view
 
                 // Request events
-                launch(UI) {
+                GlobalScope.launch(Dispatchers.Main) {
                     var currentWeek = week
                     var weeksLeft = ceil(range.toFloat() / WEEK_IN_DAYS).toInt()
                     while (weeksLeft > 0) {
@@ -266,7 +281,6 @@ class CalendarView @JvmOverloads constructor(
 
         onRangeUpdated()
     }
-
 
     // View
     override fun dispatchTouchEvent(event: MotionEvent?): Boolean {
@@ -309,7 +323,6 @@ class CalendarView @JvmOverloads constructor(
         }
     }
 
-
     private fun onHeaderHeightUpdated() {
         val firstPosition = when (pager.position) {
             -1 -> views[visibleStart - range]
@@ -330,7 +343,6 @@ class CalendarView @JvmOverloads constructor(
 
         startIndicator = when (range) {
             RANGE_DAY -> RangeHeaderView(context, _range = visibleStart.range(1))
-            RANGE_3_DAYS -> TODO()
             RANGE_WEEK -> WeekIndicatorView(context, _start = visibleStart)
             else -> throw UnsupportedOperationException()
         }
@@ -379,6 +391,22 @@ class CalendarView @JvmOverloads constructor(
         state.hourHeightMax?.also { hourHeightMax = it }
         state.hourHeight?.also { hourHeight = it }
         state.scrollPosition?.also { scrollPosition = it }
+    }
+
+    fun addExtension(calendarView: CalendarView) {
+        androidCalendarView = calendarView
+        androidCalendarView?.setOnDateChangeListener { _, year, month, dayOfMonth ->
+            val calendar = Calendar.getInstance().apply {
+                set(Calendar.YEAR, year)
+                set(Calendar.MONTH, month)
+                set(Calendar.DAY_OF_MONTH, dayOfMonth)
+            }
+            visibleStart = Day(calendar)
+        }
+    }
+
+    private fun updateExtensions() {
+        androidCalendarView?.date = _visibleStart.toCalendar().time.time
     }
 
     internal class SavedState : View.BaseSavedState {

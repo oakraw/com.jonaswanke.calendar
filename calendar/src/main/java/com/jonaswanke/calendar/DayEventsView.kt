@@ -22,10 +22,7 @@ import com.jonaswanke.calendar.utils.DAY_IN_HOURS
 import com.jonaswanke.calendar.utils.Day
 import com.jonaswanke.calendar.utils.timeOfDay
 import com.jonaswanke.calendar.utils.toCalendar
-import kotlinx.coroutines.experimental.Job
-import kotlinx.coroutines.experimental.android.UI
-import kotlinx.coroutines.experimental.delay
-import kotlinx.coroutines.experimental.launch
+import kotlinx.coroutines.*
 import java.util.*
 import kotlin.math.max
 import kotlin.math.min
@@ -36,11 +33,11 @@ import kotlin.properties.Delegates
  */
 @Suppress("LargeClass", "TooManyFunctions")
 class DayEventsView @JvmOverloads constructor(
-    context: Context,
-    private val attrs: AttributeSet? = null,
-    @AttrRes private val defStyleAttr: Int = R.attr.dayEventsViewStyle,
-    @StyleRes private val defStyleRes: Int = R.style.Calendar_DayEventsViewStyle,
-    _day: Day? = null
+        context: Context,
+        private val attrs: AttributeSet? = null,
+        @AttrRes private val defStyleAttr: Int = R.attr.dayEventsViewStyle,
+        @StyleRes private val defStyleRes: Int = R.style.Calendar_DayEventsViewStyle,
+        _day: Day? = null
 ) : ViewGroup(ContextThemeWrapper(context, defStyleRes), attrs, defStyleAttr) {
     companion object {
         private const val EVENT_POSITIONING_DEBOUNCE = 500L
@@ -144,7 +141,7 @@ class DayEventsView @JvmOverloads constructor(
 
         onUpdateDay(day)
         cal = day.start.toCalendar()
-        launch(UI) {
+        GlobalScope.launch(Dispatchers.Main) {
             divider = ContextCompat.getDrawable(context, android.R.drawable.divider_horizontal_bright)
             invalidate()
         }
@@ -231,7 +228,7 @@ class DayEventsView @JvmOverloads constructor(
             val subGroupWidth = width / data.parallel
             val subGroupLeft = left + subGroupWidth * data.index + eventSpacing
 
-            eventView.layout((subGroupLeft + data.subIndex * eventSpacing).toInt(), eventTop.toInt(),
+            eventView.layout((subGroupLeft + data.subIndex * eventSpacing).toInt(), eventTop.toInt() + eventSpacing.toInt(),
                     (subGroupLeft + subGroupWidth - eventSpacing).toInt(), eventBottom.toInt())
         }
     }
@@ -288,7 +285,7 @@ class DayEventsView @JvmOverloads constructor(
         this.events = events.sortedWith(compareBy({ eventData[it]?.start },
                 { -(eventData[it]?.end ?: Int.MIN_VALUE) }))
 
-        launch(UI) {
+        GlobalScope.launch(Dispatchers.Main) {
             @Suppress("NAME_SHADOWING")
             val events = this@DayEventsView.events
             positionEvents()
@@ -325,9 +322,9 @@ class DayEventsView @JvmOverloads constructor(
     }
 
     fun setListeners(
-        onEventClickListener: ((Event) -> Unit)?,
-        onEventLongClickListener: ((Event) -> Unit)?,
-        onAddEventListener: ((AddEvent) -> Boolean)?
+            onEventClickListener: ((Event) -> Unit)?,
+            onEventLongClickListener: ((Event) -> Unit)?,
+            onAddEventListener: ((AddEvent) -> Boolean)?
     ) {
         _onEventClickListener = onEventClickListener
         _onEventLongClickListener = onEventLongClickListener
@@ -336,10 +333,10 @@ class DayEventsView @JvmOverloads constructor(
     }
 
     internal fun setListeners(
-        onEventClickListener: ((Event) -> Unit)?,
-        onEventLongClickListener: ((Event) -> Unit)?,
-        onAddEventViewListener: ((AddEvent) -> Unit)?,
-        onAddEventListener: ((AddEvent) -> Boolean)?
+            onEventClickListener: ((Event) -> Unit)?,
+            onEventLongClickListener: ((Event) -> Unit)?,
+            onAddEventViewListener: ((AddEvent) -> Unit)?,
+            onAddEventListener: ((AddEvent) -> Boolean)?
     ) {
         _onEventClickListener = onEventClickListener
         _onEventLongClickListener = onEventLongClickListener
@@ -375,7 +372,8 @@ class DayEventsView @JvmOverloads constructor(
         regenerateBaseEventData(events)
 
         fun endOfNoSpacing(event: Event) = (event.end - day.start)
-                .coerceIn((eventData[event]?.start ?: 0) + minLength - spacing.toLong(), DateUtils.DAY_IN_MILLIS)
+                .coerceIn((eventData[event]?.start
+                        ?: 0) + minLength - spacing.toLong(), DateUtils.DAY_IN_MILLIS)
 
         var currentGroup = mutableListOf<Event>()
         fun endGroup() {
@@ -473,7 +471,7 @@ class DayEventsView @JvmOverloads constructor(
         requestLayout()
 
         if (eventPositionJob == null)
-            eventPositionJob = launch(UI) {
+            eventPositionJob = GlobalScope.launch(Dispatchers.Main) {
                 eventPositionRequired = false
                 delay(EVENT_POSITIONING_DEBOUNCE)
                 positionEvents()
@@ -539,10 +537,10 @@ class DayEventsView @JvmOverloads constructor(
     }
 
     private data class EventData(
-        val start: Int,
-        val end: Int,
-        var parallel: Int = 1,
-        var index: Int = 0,
-        var subIndex: Int = 0
+            val start: Int,
+            val end: Int,
+            var parallel: Int = 1,
+            var index: Int = 0,
+            var subIndex: Int = 0
     )
 }
