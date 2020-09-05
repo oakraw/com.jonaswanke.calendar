@@ -27,6 +27,7 @@ class DayView @JvmOverloads constructor(
         }
 
     private val allDayEventsView: AllDayEventsView
+    private val dividerView: View
     private val scrollView: ReportingScrollView
     private val eventView: DayEventsView
 
@@ -41,7 +42,7 @@ class DayView @JvmOverloads constructor(
                 _range = range)
         addView(allDayEventsView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
-        val dividerView = View(context).apply {
+        dividerView = View(context).apply {
             setBackgroundResource(android.R.drawable.divider_horizontal_bright)
         }
         addView(dividerView, LayoutParams(LayoutParams.MATCH_PARENT, dividerView.background.intrinsicHeight))
@@ -65,8 +66,12 @@ class DayView @JvmOverloads constructor(
 
     fun hideHeader() {
         allDayEventsView.isVisible = false
+        dividerView.isVisible = false
     }
 
+    fun setTimeLine(startTime: Int? = null, endTime: Int? = null, timeCycle: Int? = null) {
+        eventView.setTimeLine(startTime, endTime, timeCycle)
+    }
 
     // View
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {

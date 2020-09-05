@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.drawable.Drawable
 import android.text.format.DateUtils
 import android.util.AttributeSet
+import android.util.TimeUtils
 import android.view.ContextThemeWrapper
 import android.view.MotionEvent
 import android.view.View
@@ -18,12 +19,10 @@ import androidx.core.content.withStyledAttributes
 import androidx.core.view.children
 import androidx.core.view.get
 import com.jonaswanke.calendar.RangeView.Companion.showAsAllDay
-import com.jonaswanke.calendar.utils.DAY_IN_HOURS
-import com.jonaswanke.calendar.utils.Day
-import com.jonaswanke.calendar.utils.timeOfDay
-import com.jonaswanke.calendar.utils.toCalendar
+import com.jonaswanke.calendar.utils.*
 import kotlinx.coroutines.*
 import java.util.*
+import java.util.concurrent.TimeUnit
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.properties.Delegates
@@ -83,7 +82,9 @@ class DayEventsView @JvmOverloads constructor(
     private val eventData: MutableMap<Event, EventData> = mutableMapOf()
     private var addEventView: EventView? = null
 
-
+    private var startTime: Int = 0
+    private var endTime: Int = 0
+    private var timeCycle: Int = 0
     private var timeCircleRadius: Int = 0
     private var timeLineSize: Int = 0
     private lateinit var timePaint: Paint
@@ -122,6 +123,7 @@ class DayEventsView @JvmOverloads constructor(
     }
         private set
     private var dividerHeight: Int = 0
+    private val timeSlot = mutableListOf<Long>()
 
     private val cal: Calendar
 
@@ -132,6 +134,9 @@ class DayEventsView @JvmOverloads constructor(
             _hourHeight = getDimension(R.styleable.DayEventsView_hourHeight, 0f)
             hourHeightMin = getDimension(R.styleable.DayEventsView_hourHeightMin, 0f)
             hourHeightMax = getDimension(R.styleable.DayEventsView_hourHeightMax, 0f)
+            startTime = getInteger(R.styleable.DayEventsView_startTime, 60)
+            endTime = getInteger(R.styleable.DayEventsView_endTime, 1440)
+            timeCycle = getInteger(R.styleable.DayEventsView_timeCycle, 60)
 
             dividerPadding = getDimensionPixelOffset(R.styleable.DayEventsView_dividerPadding, 0)
 
@@ -151,12 +156,19 @@ class DayEventsView @JvmOverloads constructor(
                 return@setOnTouchListener false
 
             if (motionEvent.action == MotionEvent.ACTION_UP) {
-                fun hourToTime(hour: Int) = day.start + hour * DateUtils.HOUR_IN_MILLIS
+                fun calendarInMillis(slotIndex: Int) = timeSlot[slotIndex]
+                fun timeInMillis(slotIndex: Int): Long {
+                    val c = Calendar.getInstance().apply { timeInMillis = timeSlot[slotIndex] }
+                    return c.get(Calendar.HOUR_OF_DAY) * DateUtils.HOUR_IN_MILLIS + c.get(Calendar.MINUTE) * DateUtils.MINUTE_IN_MILLIS
+                }
 
-                val hour = (motionEvent.y / hourHeight).toInt()
-                val event = AddEvent(hourToTime(hour), hourToTime(hour + 1))
-                eventData[event] = EventData((hour * DateUtils.HOUR_IN_MILLIS).toInt(),
-                        ((hour + 1) * DateUtils.HOUR_IN_MILLIS).toInt())
+                val slotIndex = (motionEvent.y / hourHeight).toInt()
+
+                if (slotIndex >= timeSlot.lastIndex) return@setOnTouchListener  false
+
+                val event = AddEvent(calendarInMillis(slotIndex), calendarInMillis(slotIndex + 1))
+                eventData[event] = EventData(timeInMillis(slotIndex).toInt(),
+                        timeInMillis(slotIndex + 1).toInt())
 
                 val view = addEventView
                 if (view == null) {
@@ -194,10 +206,36 @@ class DayEventsView @JvmOverloads constructor(
         super.addView(child, index, params)
     }
 
+    override fun getPaddingTop(): Int {
+        return super.getPaddingTop() + 10.px
+    }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val height = paddingTop + paddingBottom + max(suggestedMinimumHeight, (_hourHeight * DAY_IN_HOURS).toInt())
+        calculateTimeSlot()
+        val height = paddingTop + paddingBottom + max(suggestedMinimumHeight, (_hourHeight * timeSlot.size).toInt())
         setMeasuredDimension(View.getDefaultSize(suggestedMinimumWidth, widthMeasureSpec),
                 height)
+    }
+
+    private fun calculateTimeSlot() {
+        timeSlot.clear()
+
+        val startCalendar = day.toCalendar().apply {
+            set(Calendar.HOUR_OF_DAY, startTime / 60)
+            set(Calendar.MINUTE, startTime % 60)
+        }
+
+        val endCalendar = day.toCalendar().apply {
+            set(Calendar.HOUR_OF_DAY, endTime / 60)
+            set(Calendar.MINUTE, endTime % 60)
+        }
+
+//        timeSlot.add(startCalendar.timeInMillis)
+        while (startCalendar < endCalendar) {
+            timeSlot.add(startCalendar.timeInMillis)
+            startCalendar.add(Calendar.MINUTE, timeCycle)
+        }
+        timeSlot.add(startCalendar.timeInMillis)
     }
 
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
@@ -210,9 +248,9 @@ class DayEventsView @JvmOverloads constructor(
 
         fun getPosForTime(time: Long): Int {
             return when {
-                time < day.start -> 0
-                time >= day.end -> height
-                else -> (height * cal.apply { timeInMillis = time }.timeOfDay / DateUtils.DAY_IN_MILLIS).toInt()
+                time < timeSlot.first() -> 0
+//                time >= timeSlot.last() -> height
+                else -> height * timeSlot.indexOf(time) / timeSlot.size
             }
         }
 
@@ -223,8 +261,10 @@ class DayEventsView @JvmOverloads constructor(
             val data = eventData[event] ?: continue
             val eventTop = min(top + getPosForTime(event.start), bottom - eventView.minHeight).toFloat()
             // Fix if event ends on next day
-            val eventBottom = if (event.end >= day.nextDay.start) bottom.toFloat()
-            else max(top + getPosForTime(event.end) - eventSpacing, eventTop + eventView.minHeight)
+            val eventBottom = if (event.end >= day.nextDay.start)
+                bottom.toFloat()
+            else
+                max(top + getPosForTime(event.end) - eventSpacing, eventTop + eventView.minHeight)
             val subGroupWidth = width / data.parallel
             val subGroupLeft = left + subGroupWidth * data.index + eventSpacing
 
@@ -244,8 +284,8 @@ class DayEventsView @JvmOverloads constructor(
         val bottom = height - paddingBottom
 
         if (day.isToday) {
-            val time = Calendar.getInstance().timeOfDay
-            val posY = top + (bottom.toFloat() - top) * time / DateUtils.DAY_IN_MILLIS
+            val time = Calendar.getInstance().timeInMillis - timeSlot.first()
+            val posY = top + (time * ((bottom.toFloat() - _hourHeight) - top) / (timeSlot.last() - timeSlot.first()))
             canvas.drawCircle(left.toFloat(), posY, timeCircleRadius.toFloat(), timePaint)
             canvas.drawRect(left.toFloat(), posY - timeLineSize / 2,
                     right.toFloat(), posY + timeLineSize / 2, timePaint)
@@ -261,11 +301,18 @@ class DayEventsView @JvmOverloads constructor(
         val top = paddingTop
         val right = width - dividerPadding
 
-        for (hour in 1 until DAY_IN_HOURS) {
-            divider?.setBounds(left, (top + _hourHeight * hour).toInt(),
-                    right, (top + _hourHeight * hour + dividerHeight).toInt())
+        timeSlot.forEachIndexed() { index, _ ->
+            divider?.setBounds(left, (top + _hourHeight * index).toInt(),
+                    right, (top + _hourHeight * index + dividerHeight).toInt())
             divider?.draw(canvas)
         }
+    }
+
+    fun setTimeLine(startTime: Int? = null, endTime: Int? = null, timeCycle: Int? = null) {
+        startTime?.let { this.startTime = it }
+        endTime?.let { this.endTime = it }
+        timeCycle?.let { this.timeCycle = it }
+        requestLayout()
     }
 
 
@@ -356,9 +403,9 @@ class DayEventsView @JvmOverloads constructor(
             if (event == null)
                 continue
 
-            val start = (event.start - day.start).coerceIn(0, DateUtils.DAY_IN_MILLIS - minLength).toInt()
+            val start = (event.start - timeSlot.first()).coerceIn(0, DateUtils.DAY_IN_MILLIS - minLength).toInt()
             eventData[event] = EventData(start,
-                    (event.end - day.start).coerceIn(start + minLength, DateUtils.DAY_IN_MILLIS).toInt())
+                    (event.end - timeSlot.first()).coerceIn(start + minLength, DateUtils.DAY_IN_MILLIS).toInt())
         }
     }
 
@@ -371,7 +418,7 @@ class DayEventsView @JvmOverloads constructor(
 
         regenerateBaseEventData(events)
 
-        fun endOfNoSpacing(event: Event) = (event.end - day.start)
+        fun endOfNoSpacing(event: Event) = (event.end - timeSlot.first())
                 .coerceIn((eventData[event]?.start
                         ?: 0) + minLength - spacing.toLong(), DateUtils.DAY_IN_MILLIS)
 

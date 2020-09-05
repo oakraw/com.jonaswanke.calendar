@@ -2,6 +2,7 @@ package com.jonaswanke.calendar
 
 import android.content.Context
 import android.gesture.GestureOverlayView
+import android.graphics.Canvas
 import android.os.Parcel
 import android.os.Parcelable
 import android.util.AttributeSet
@@ -9,44 +10,34 @@ import android.util.SparseArray
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
+import android.view.ViewTreeObserver
 import android.widget.CalendarView
 import androidx.annotation.AttrRes
-import androidx.annotation.IntDef
 import androidx.core.content.withStyledAttributes
 import androidx.core.view.doOnLayout
-import androidx.viewpager.widget.ViewPager
-import com.jonaswanke.calendar.pager.InfinitePagerAdapter
-import com.jonaswanke.calendar.pager.InfiniteViewPager
 import com.jonaswanke.calendar.utils.*
 import kotlinx.android.synthetic.main.view_calendar.view.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import java.util.*
-import kotlin.math.ceil
 import kotlin.properties.Delegates
 
 /**
  * TODO: document your custom view class.
  */
 class CalendarView @JvmOverloads constructor(
-    context: Context,
-    attrs: AttributeSet? = null,
-    @AttrRes defStyleAttr: Int = R.attr.calendarViewStyle
+        context: Context,
+        attrs: AttributeSet? = null,
+        @AttrRes defStyleAttr: Int = R.attr.calendarViewStyle
 ) : GestureOverlayView(context, attrs, defStyleAttr) {
 
     companion object {
         private const val GESTURE_STROKE_LENGTH = 10f
-
-        const val RANGE_DAY = 1
-        const val RANGE_WEEK = 7
-        val RANGE_VALUES = intArrayOf(RANGE_DAY, RANGE_WEEK)
     }
 
-    @Retention(AnnotationRetention.SOURCE)
-    @IntDef(RANGE_DAY, RANGE_WEEK)
-    annotation class Range
 
+    private var dayView: DayView? = null
 
     var onEventClickListener: ((Event) -> Unit)?
             by Delegates.observable<((Event) -> Unit)?>(null) { _, _, _ -> updateListeners() }
@@ -55,25 +46,7 @@ class CalendarView @JvmOverloads constructor(
     var onAddEventListener: ((AddEvent) -> Boolean)?
             by Delegates.observable<((AddEvent) -> Boolean)?>(null) { _, _, _ -> updateListeners() }
 
-    var eventRequestCallback: (Week) -> Unit = {}
-
-    val cachedWeeks: Set<Week>
-        get() {
-            return views
-                    .map { it.value }
-                    .flatMap {
-                        val start = it.range.start.weekObj
-                        val end = it.range.endExclusive.weekObj
-                        return@flatMap generateSequence(start) { week ->
-                            if (week < end) week.nextWeek
-                            else null
-                        }.toSet()
-                    }
-                    .toSet()
-        }
-    val cachedEvents: Set<Week> get() = events.keys
-
-    var startIndicator: RangeViewStartIndicator? = null
+    var eventRequestCallback: (Day) -> Unit = {}
 
     var hourHeight: Float by Delegates.vetoable(0f) { _, old, new ->
         @Suppress("ComplexCondition")
@@ -123,54 +96,20 @@ class CalendarView @JvmOverloads constructor(
     private val views: MutableMap<Day, RangeView> = mutableMapOf()
     private val scaleDetector: ScaleGestureDetector
 
-    @Range
-    private var _range: Int = RANGE_WEEK
-    @Range
-    var range: Int
-        get() = _range
+    var visibleStart: Day = Day()
         set(value) {
-            if (_range == value)
+            if (field == value)
                 return
-            if (value !in RANGE_VALUES)
-                throw UnsupportedOperationException()
 
-            _range = value
-            onRangeUpdated()
-        }
-
-    private var _visibleStart: Day = Day()
-        set(value) {
             field = value
-            updateExtensions()
-        }
-    var visibleStart: Day
-        get() = _visibleStart
-        set(value) {
-            val start = when (range) {
-                RANGE_DAY -> value
-                RANGE_WEEK -> value.weekObj.firstDay
-                else -> throw UnsupportedOperationException()
-            }
-            if (_visibleStart == start)
-                return
-
-            _visibleStart = start
-            startIndicator?.start = start
-            pager.setCurrentIndicator<Day, RangeView>(start)
-        }
-    var visibleEnd: Day
-        get() = _visibleStart + range
-        set(value) {
-            visibleStart = value - range
+            addDayView(value)
         }
 
-    private val pagerAdapter: InfinitePagerAdapter<Day, RangeView>
 
     init {
         View.inflate(context, R.layout.view_calendar, this)
 
         context.withStyledAttributes(attrs, R.styleable.CalendarView, defStyleAttr, R.style.Calendar_CalendarViewStyle) {
-            _range = getInteger(R.styleable.CalendarView_range, RANGE_WEEK)
             hourHeightMin = getDimension(R.styleable.CalendarView_hourHeightMin, 0f)
             hourHeightMax = getDimension(R.styleable.CalendarView_hourHeightMax, 0f)
             hourHeight = getDimension(R.styleable.CalendarView_hourHeight, 0f)
@@ -193,93 +132,49 @@ class CalendarView @JvmOverloads constructor(
             }
         })
 
-        pagerAdapter = object : InfinitePagerAdapter<Day, RangeView>(visibleStart, 1) {
-            override fun nextIndicator(current: Day) = current + range
-            override fun previousIndicator(current: Day) = current - range
+        addDayView(visibleStart)
 
-            override var currentIndicatorString: String
-                get() = currentIndicator.toString()
-                set(value) {
-                    currentIndicator = value.toDay()
-                }
-
-            @Suppress("LongMethod")
-            override fun instantiateItem(indicator: Day, oldView: RangeView?): RangeView {
-                // Remove from cache
-                val oldKey = oldView?.range?.start
-                if (views[oldKey] == oldView)
-                    views.remove(oldKey)
-
-                // Generate/reuse view
-                val week = indicator.weekObj
-                val view = when (range) {
-                    RANGE_DAY -> {
-                        val dayView = (oldView as? DayView) ?: DayView(context, day = indicator)
-                        if (shouldHideHeader) dayView.hideHeader()
-                        dayView
-                    }
-                    RANGE_WEEK -> (oldView as? WeekView) ?: WeekView(context, week = week)
-                    else -> throw UnsupportedOperationException()
-                }
-
-
-                // Configure view
-                view.setListeners(onEventClickListener, onEventLongClickListener, { _ ->
-                    for (otherView in views.values)
-                        if (otherView != view)
-                            otherView.removeAddEvent()
-                }, onAddEventListener)
-                view.onHeaderHeightChangeListener = { onHeaderHeightUpdated() }
-                view.onScrollChangeListener = { scrollPosition = it }
-                view.hourHeightMin = hourHeightMin
-                view.hourHeightMax = hourHeightMax
-                view.hourHeight = hourHeight
-                doOnLayout { _ -> view.scrollTo(scrollPosition) }
-
-                // Set/update events
-                if (oldView == null)
-                    view.events = getEventsForRange(view.range)
-                else
-                    view.setStart(indicator, getEventsForRange(indicator.range(view.length)))
-                views[indicator] = view
-
-                // Request events
-                GlobalScope.launch(Dispatchers.Main) {
-                    var currentWeek = week
-                    var weeksLeft = ceil(range.toFloat() / WEEK_IN_DAYS).toInt()
-                    while (weeksLeft > 0) {
-                        eventRequestCallback(week)
-                        currentWeek = currentWeek.nextWeek
-                        weeksLeft--
-                    }
-                }
-
-                return view
-            }
-        }
+//        // Request events
+//        GlobalScope.launch(Dispatchers.Main) {
+//            var currentWeek = week
+//            var weeksLeft = ceil(range.toFloat() / WEEK_IN_DAYS).toInt()
+//            while (weeksLeft > 0) {
+//                eventRequestCallback(week)
+//                currentWeek = currentWeek.nextWeek
+//                weeksLeft--
+//            }
+//        }
 
         hoursScroll.onScrollChangeListener = { scrollPosition = it }
-        startIndicator?.start = pagerAdapter.currentIndicator
+    }
 
-        pager.adapter = pagerAdapter
-        pager.listener = object : InfiniteViewPager.OnInfinitePageChangeListener {
-            override fun onPageScrolled(indicator: Any?, positionOffset: Float, positionOffsetPixels: Int) {
-                // TODO: update startIndicator early
-                onHeaderHeightUpdated()
-            }
+    private fun addDayView(day: Day) {
+        dayView = DayView(context, day = day)
+        dayView?.let {dayView ->
+            if (shouldHideHeader) dayView.hideHeader()
 
-            override fun onPageSelected(indicator: Any?) {
-            }
+            dayView.setListeners(onEventClickListener, onEventLongClickListener, { _ ->
+                for (otherView in views.values)
+                    if (otherView != dayView)
+                        otherView.removeAddEvent()
+            }, onAddEventListener)
+            dayView.onScrollChangeListener = { scrollPosition = it }
+            dayView.hourHeightMin = hourHeightMin
+            dayView.hourHeightMax = hourHeightMax
+            dayView.hourHeight = hourHeight
+            doOnLayout { _ -> dayView.scrollTo(scrollPosition) }
 
-            override fun onPageScrollStateChanged(state: Int) {
-                if (state == ViewPager.SCROLL_STATE_IDLE) {
-                    _visibleStart = pagerAdapter.currentIndicator
-                    startIndicator?.start = _visibleStart
+            scrollPosition = 0
+            container.removeAllViews()
+            container.addView(dayView)
+
+            dayView.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+                override fun onGlobalLayout() {
+                    eventRequestCallback.invoke(day)
+                    dayView.viewTreeObserver.removeOnGlobalLayoutListener(this)
                 }
-            }
+            })
         }
-
-        onRangeUpdated()
     }
 
     // View
@@ -287,7 +182,6 @@ class CalendarView @JvmOverloads constructor(
         scaleDetector.onTouchEvent(event)
         return super.dispatchTouchEvent(event)
     }
-
 
     // Custom
     private fun getEventsForRange(range: DayRange): List<Event> {
@@ -304,52 +198,36 @@ class CalendarView @JvmOverloads constructor(
         return viewEvents
     }
 
-    fun setEventsForWeek(week: Week, events: List<Event>) {
-        if (events.any { it.end < week.start || it.start >= week.end })
-            throw IllegalArgumentException("event starts must all be inside the set day")
-
-        this.events[week] = events
-
-        // Update future weeks
-        var start = views.keys.lastOrNull { it <= week.firstDay }
-                ?: views.keys.firstOrNull()
-                ?: return
-        while (views[start]?.events?.any { it.start in week } == true // Deprecated event has to be removed
-                || events.any { it.end > start.start }) { // New event has to be added
-            val view = views[start]
-            if (view != null)
-                view.events = getEventsForRange(view.range)
-            start += range
-        }
+    fun setEvents(events: List<Event>) {
+        dayView?.events = events
     }
 
     private fun onHeaderHeightUpdated() {
-        val firstPosition = when (pager.position) {
-            -1 -> views[visibleStart - range]
-            1 -> views[visibleStart + range]
-            else -> views[visibleStart]
-        }?.headerHeight ?: 0
-        val secondPosition = when (pager.position) {
-            0 -> views[visibleStart + range]
-            else -> views[visibleStart]
-        }?.headerHeight ?: 0
-        startIndicator?.minimumHeight = (firstPosition * (1 - pager.positionOffset)
-                + secondPosition * pager.positionOffset).toInt()
+//        val firstPosition = when (pager.position) {
+//            -1 -> views[visibleStart - range]
+//            1 -> views[visibleStart + range]
+//            else -> views[visibleStart]
+//        }?.headerHeight ?: 0
+//        val secondPosition = when (pager.position) {
+//            0 -> views[visibleStart + range]
+//            else -> views[visibleStart]
+//        }?.headerHeight ?: 0
+//        startIndicator?.minimumHeight = 0
     }
 
     private fun onRangeUpdated() {
         // Forces aligning to new length
-        visibleStart = visibleStart
+//        visibleStart = visibleStart
+//
+//        startIndicator = when (range) {
+//            RANGE_DAY -> RangeHeaderView(context, _range = visibleStart.range(1))
+//            RANGE_WEEK -> WeekIndicatorView(context, _start = visibleStart)
+//            else -> throw UnsupportedOperationException()
+//        }
+//        hoursCol.removeViewAt(0)
+//        hoursCol.addView(startIndicator, 0, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
-        startIndicator = when (range) {
-            RANGE_DAY -> RangeHeaderView(context, _range = visibleStart.range(1))
-            RANGE_WEEK -> WeekIndicatorView(context, _start = visibleStart)
-            else -> throw UnsupportedOperationException()
-        }
-        hoursCol.removeViewAt(0)
-        hoursCol.addView(startIndicator, 0, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-
-        pagerAdapter.reset(visibleStart)
+//        pagerAdapter.reset(visibleStart)
     }
 
     private fun updateListeners() {
@@ -366,7 +244,6 @@ class CalendarView @JvmOverloads constructor(
     override fun onSaveInstanceState(): Parcelable {
         return SavedState(super.onSaveInstanceState()).also {
             it.visibleStart = visibleStart
-            it.range = range
             it.hourHeight = hourHeight
             it.hourHeightMin = hourHeightMin
             it.hourHeightMax = hourHeightMax
@@ -386,7 +263,6 @@ class CalendarView @JvmOverloads constructor(
         super.onRestoreInstanceState(state.superState)
         // firstDayOfWeek not updated on restore automatically
         state.visibleStart?.also { visibleStart = Day(it.year, it.week, it.day) }
-        state.range?.also { range = it }
         state.hourHeightMin?.also { hourHeightMin = it }
         state.hourHeightMax?.also { hourHeightMax = it }
         state.hourHeight?.also { hourHeight = it }
@@ -405,10 +281,6 @@ class CalendarView @JvmOverloads constructor(
         }
     }
 
-    private fun updateExtensions() {
-        androidCalendarView?.date = _visibleStart.toCalendar().time.time
-    }
-
     internal class SavedState : View.BaseSavedState {
         companion object {
             @Suppress("unused")
@@ -420,8 +292,7 @@ class CalendarView @JvmOverloads constructor(
         }
 
         var visibleStart: Day? = null
-        @Range
-        var range: Int? = null
+
         var hourHeight: Float? = null
         var hourHeightMin: Float? = null
         var hourHeightMax: Float? = null
@@ -442,7 +313,6 @@ class CalendarView @JvmOverloads constructor(
             }
 
             visibleStart = source.readString()?.toDay()
-            range = readInt()
             hourHeight = readFloat()
             hourHeightMin = readFloat()
             hourHeightMax = readFloat()
@@ -454,7 +324,6 @@ class CalendarView @JvmOverloads constructor(
         override fun writeToParcel(out: Parcel?, flags: Int) {
             super.writeToParcel(out, flags)
             out?.writeString(visibleStart?.toString())
-            out?.writeInt(range ?: Int.MIN_VALUE)
             out?.writeFloat(hourHeight ?: Float.NaN)
             out?.writeFloat(hourHeightMin ?: Float.NaN)
             out?.writeFloat(hourHeightMax ?: Float.NaN)

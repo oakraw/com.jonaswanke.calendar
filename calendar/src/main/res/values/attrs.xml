@@ -5,6 +5,9 @@
     <attr name="hourHeightMax" format="dimension" />
     <attr name="eventSpacing" format="dimension" />
     <attr name="hideHeader" format="boolean" />
+    <attr name="startTime" format="integer" />
+    <attr name="endTime" format="integer" />
+    <attr name="timeCycle" format="integer" />
 
     <declare-styleable name="AppTheme">
         <attr name="calendarViewStyle" format="reference" />
@@ -27,10 +30,6 @@
     </declare-styleable>
 
     <declare-styleable name="CalendarView">
-        <attr name="range" format="enum">
-            <enum name="day" value="1" />
-            <enum name="week" value="7" />
-        </attr>
         <attr name="hourHeight" />
         <attr name="hourHeightMin" />
         <attr name="hourHeightMax" />
@@ -61,6 +60,9 @@
         <attr name="hourHeight" />
         <attr name="hourHeightMin" />
         <attr name="hourHeightMax" />
+        <attr name="startTime" />
+        <attr name="endTime" />
+        <attr name="timeCycle" />
         <attr name="timeCircleRadius" format="dimension" />
         <attr name="timeLineSize" format="dimension" />
         <attr name="timeColor" format="color" />
@@ -86,6 +88,10 @@
         <attr name="hourHeight" />
         <attr name="hourHeightMin" />
         <attr name="hourHeightMax" />
+        <attr name="startTime" />
+        <attr name="endTime" />
+        <attr name="timeCycle" />
+        <attr name="android:fontFamily" />
         <attr name="hourSize" format="dimension" />
         <attr name="hourColor" format="color" />
     </declare-styleable>

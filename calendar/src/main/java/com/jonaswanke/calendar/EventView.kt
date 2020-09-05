@@ -7,6 +7,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
+import android.os.Build
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.style.StyleSpan
@@ -59,8 +60,9 @@ class EventView @JvmOverloads constructor(
 
     init {
         context.withStyledAttributes(attrs = intArrayOf(android.R.attr.selectableItemBackground)) {
-            @SuppressLint("NewApi")
-            foreground = getDrawable(0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                foreground = getDrawable(0)
+            }
         }
         context.withStyledAttributes(attrs, R.styleable.EventView, defStyleAttr, defStyleRes) {
             backgroundColorDefault = getColor(R.styleable.EventView_backgroundColorDefault, Color.BLUE)
