@@ -40,8 +40,6 @@
         <item name="eventStackOverlap">400dp</item>
         <item name="android:paddingRight">16dp</item>
         <item name="android:paddingLeft">12dp</item>
-        <item name="startTime">420</item>
-        <item name="endTime">1200</item>
     </style>
 
     <style name="Calendar.EventViewStyle">
@@ -69,7 +67,5 @@
         <item name="hourSize">12sp</item>
         <item name="hourColor">#4A4A4A</item>
         <item name="android:fontFamily">@font/main_font</item>
-        <item name="startTime">420</item>
-        <item name="endTime">1200</item>
     </style>
 </resources>

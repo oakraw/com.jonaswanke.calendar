@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.drawable.Drawable
+import android.os.Build
 import android.text.format.DateUtils
 import android.util.AttributeSet
 import android.util.TimeUtils
@@ -164,7 +165,7 @@ class DayEventsView @JvmOverloads constructor(
 
                 val slotIndex = (motionEvent.y / hourHeight).toInt()
 
-                if (slotIndex >= timeSlot.lastIndex) return@setOnTouchListener  false
+                if (slotIndex >= timeSlot.lastIndex) return@setOnTouchListener false
 
                 val event = AddEvent(calendarInMillis(slotIndex), calendarInMillis(slotIndex + 1))
                 eventData[event] = EventData(timeInMillis(slotIndex).toInt(),

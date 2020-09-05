@@ -37,6 +37,9 @@ class CalendarView @JvmOverloads constructor(
     }
 
 
+    private var startTime: Int? = null
+    private var endTime: Int? = null
+    private var timeCycle: Int? = null
     private var dayView: DayView? = null
 
     var onEventClickListener: ((Event) -> Unit)?
@@ -150,18 +153,14 @@ class CalendarView @JvmOverloads constructor(
 
     private fun addDayView(day: Day) {
         dayView = DayView(context, day = day)
-        dayView?.let {dayView ->
+        dayView?.let { dayView ->
             if (shouldHideHeader) dayView.hideHeader()
 
-            dayView.setListeners(onEventClickListener, onEventLongClickListener, { _ ->
-                for (otherView in views.values)
-                    if (otherView != dayView)
-                        otherView.removeAddEvent()
-            }, onAddEventListener)
             dayView.onScrollChangeListener = { scrollPosition = it }
             dayView.hourHeightMin = hourHeightMin
             dayView.hourHeightMax = hourHeightMax
             dayView.hourHeight = hourHeight
+            dayView.setTimeLine(startTime, endTime, timeCycle)
             doOnLayout { _ -> dayView.scrollTo(scrollPosition) }
 
             scrollPosition = 0
@@ -170,6 +169,7 @@ class CalendarView @JvmOverloads constructor(
 
             dayView.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
                 override fun onGlobalLayout() {
+                    dayView.setListeners(onEventClickListener, onEventLongClickListener, onAddEventListener)
                     eventRequestCallback.invoke(day)
                     dayView.viewTreeObserver.removeOnGlobalLayoutListener(this)
                 }
@@ -202,41 +202,11 @@ class CalendarView @JvmOverloads constructor(
         dayView?.events = events
     }
 
-    private fun onHeaderHeightUpdated() {
-//        val firstPosition = when (pager.position) {
-//            -1 -> views[visibleStart - range]
-//            1 -> views[visibleStart + range]
-//            else -> views[visibleStart]
-//        }?.headerHeight ?: 0
-//        val secondPosition = when (pager.position) {
-//            0 -> views[visibleStart + range]
-//            else -> views[visibleStart]
-//        }?.headerHeight ?: 0
-//        startIndicator?.minimumHeight = 0
-    }
-
-    private fun onRangeUpdated() {
-        // Forces aligning to new length
-//        visibleStart = visibleStart
-//
-//        startIndicator = when (range) {
-//            RANGE_DAY -> RangeHeaderView(context, _range = visibleStart.range(1))
-//            RANGE_WEEK -> WeekIndicatorView(context, _start = visibleStart)
-//            else -> throw UnsupportedOperationException()
-//        }
-//        hoursCol.removeViewAt(0)
-//        hoursCol.addView(startIndicator, 0, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-
-//        pagerAdapter.reset(visibleStart)
-    }
 
     private fun updateListeners() {
-        for (view in views.values)
-            view.setListeners(onEventClickListener, onEventLongClickListener, onAddEventListener)
+        dayView?.setListeners(onEventClickListener, onEventLongClickListener, onAddEventListener)
     }
 
-
-    // State
     override fun dispatchSaveInstanceState(container: SparseArray<Parcelable>?) {
         dispatchFreezeSelfOnly(container)
     }
@@ -267,6 +237,16 @@ class CalendarView @JvmOverloads constructor(
         state.hourHeightMax?.also { hourHeightMax = it }
         state.hourHeight?.also { hourHeight = it }
         state.scrollPosition?.also { scrollPosition = it }
+    }
+
+    fun setTimeLine(startTime: Int? = null, endTime: Int? = null, timeCycle: Int? = null) {
+        this.startTime = startTime
+        this.endTime = endTime
+        this.timeCycle = timeCycle
+
+        hours.setTimeLine(startTime, endTime, timeCycle)
+        dayView?.setTimeLine(startTime, endTime, timeCycle)
+        requestLayout()
     }
 
     fun addExtension(calendarView: CalendarView) {

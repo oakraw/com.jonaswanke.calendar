@@ -35,6 +35,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Add event at $start", Toast.LENGTH_SHORT).show()
             true
         }
+        calendar.setTimeLine(420, 1200, 60)
         calendar.addExtension(calendarAndroid)
 
 //        populate()
