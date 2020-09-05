@@ -37,8 +37,8 @@
 
         </LinearLayout>
 
-        <com.jonaswanke.calendar.pager.InfiniteViewPager
-            android:id="@+id/pager"
+        <FrameLayout
+            android:id="@+id/container"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1" />

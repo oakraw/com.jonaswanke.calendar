@@ -27,8 +27,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             app:hideHeader="true"
-            android:paddingLeft="16dp"
-            app:range="day" />
+            android:paddingLeft="16dp" />
 
     </LinearLayout>
 </layout>

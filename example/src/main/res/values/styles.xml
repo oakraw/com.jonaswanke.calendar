@@ -27,7 +27,6 @@
     </style>
 
     <style name="Calendar.CalendarViewStyle">
-        <item name="range">day</item>
         <item name="hourHeight">60dp</item>
         <item name="hourHeightMin">40dp</item>
         <item name="hourHeightMax">100dp</item>
@@ -67,5 +66,6 @@
         <item name="hourHeightMax">100dp</item>
         <item name="hourSize">12sp</item>
         <item name="hourColor">#4A4A4A</item>
+        <item name="android:fontFamily">@font/main_font</item>
     </style>
 </resources>
