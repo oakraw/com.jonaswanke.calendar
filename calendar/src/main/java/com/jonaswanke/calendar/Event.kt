@@ -7,6 +7,8 @@ interface Event : Comparable<Event> {
     val description: String?
     @get:ColorInt
     val color: Int?
+    @get:ColorInt
+    val backgroundColor: Int?
     val start: Long
     val end: Long
     val allDay: Boolean
@@ -17,6 +19,8 @@ open class BaseEvent(
     override val description: String?,
     @get:ColorInt
     override val color: Int?,
+    @get:ColorInt
+    override val backgroundColor: Int?,
     override val start: Long,
     override val end: Long,
     override val allDay: Boolean = false
@@ -34,4 +38,4 @@ open class BaseEvent(
 }
 
 class AddEvent(start: Long, end: Long) :
-        BaseEvent("", null, null, start, end, false)
+        BaseEvent("", null, null, null, start, end, false)

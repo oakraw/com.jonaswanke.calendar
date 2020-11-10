@@ -87,11 +87,12 @@ class EventView @JvmOverloads constructor(
             if (event.description != null)
                 builder.append("\n").append(event.description)
             text = builder
+            event.color?.let { setTextColor(it) }
         }
 
         ((backgroundDrawable as? LayerDrawable)
                 ?.getDrawable(1) as? GradientDrawable)
-                ?.setColor(event.color ?: backgroundColorDefault)
+                ?.setColor(event.backgroundColor ?: backgroundColorDefault)
         background = backgroundDrawable
         setPadding(16.px, 12.px,16.px,12.px)
     }

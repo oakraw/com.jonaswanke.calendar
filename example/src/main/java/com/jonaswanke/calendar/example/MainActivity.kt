@@ -46,23 +46,13 @@ class MainActivity : AppCompatActivity() {
         val events = mutableListOf<Event>()
 
         val start = day.toCalendar()
-        events.add(BaseEvent("Fully Booked", null, 0XFFE4E4E4.toInt(), start.apply {
+        events.add(BaseEvent("Fully Booked", null, 0XFF0063E0.toInt(), 0XFFE0EFFFd.toInt(), start.apply {
             set(Calendar.HOUR, start[Calendar.DAY_OF_MONTH])
             set(Calendar.MINUTE, 0)
         }.timeInMillis , start.apply {
             set(Calendar.HOUR, 11)
             set(Calendar.MINUTE, 0)
         }.timeInMillis))
-
-        events.add(BaseEvent("Fully Booked", null, 0XFFE4E4E4.toInt(), start.apply {
-            set(Calendar.HOUR, 10)
-            set(Calendar.MINUTE, 30)
-        }.timeInMillis , start.apply {
-            set(Calendar.HOUR, 11)
-            set(Calendar.MINUTE, 30)
-        }.timeInMillis))
-
-
 
         calendar.setEvents(events)
     }
